@@ -433,7 +433,9 @@ h5_to_seurat <- function(h5,
   if (calData) {
     sce <- Seurat::NormalizeData(sce)
   }
-
+  print(paste("Dimensions after normalization:", paste(dim(sce@assays[[assay]]@data), collapse = " x ")))
+  summary(sce)
+  
   print("Add var...")
   # var
   sce <- sce_add_h5_to_var(sce, h5, assay, "var")
