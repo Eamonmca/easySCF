@@ -302,15 +302,66 @@ sce_add_h5_to_graphs <- function(sce, h5, cellNames, graphsName = "graphs") {
 }
 
 sce_add_h5_to_var <- function(sce, h5, assay, varName = "var", SeuratVersion = checkSeuratVersion()) {
-  if (SeuratVersion == 5) {
-    sce@assays[[assay]] <- Seurat::AddMetaData(sce@assays[[assay]], h5_to_DF(h5[[varName]][["rawvar"]]))
-  } else if (SeuratVersion == 4) {
-    sce@assays[[assay]]@meta.features <- h5_to_DF(h5[[varName]][["rawvar"]])
-  } else {
-    stop("Unsupported Seurat version")
+  print("Starting sce_add_h5_to_var function...")
+  
+  # Debug input arguments
+  print(paste("Seurat version:", SeuratVersion))
+  print(paste("Assay name:", assay))
+  print(paste("Variable name in HDF5:", varName))
+  
+  # Check if h5[varName] exists
+  if (!varName %in% names(h5)) {
+    stop(paste("Variable", varName, "not found in HDF5 object."))
   }
+  
+  # Check if rawvar exists within varName
+  if (!"rawvar" %in% names(h5[[varName]])) {
+    stop(paste("rawvar not found within", varName, "in HDF5 object."))
+  }
+  
+  print("Attempting to convert rawvar to a data frame...")
+  varData <- tryCatch({
+    h5_to_DF(h5[[varName]][["rawvar"]])
+  }, error = function(e) {
+    print("Error converting rawvar to data frame:")
+    print(e)
+    return(NULL)
+  })
+  
+  if (is.null(varData)) {
+    stop("Failed to convert rawvar to a data frame. Exiting function.")
+  }
+  
+  print("Successfully converted rawvar to data frame.")
+  print(paste("Dimensions of varData:", paste(dim(varData), collapse = " x ")))
+
+  # Add meta data based on Seurat version
+  if (SeuratVersion == 5) {
+    print("Adding metadata to Seurat object (version 5)...")
+    sce@assays[[assay]] <- tryCatch({
+      Seurat::AddMetaData(sce@assays[[assay]], varData)
+    }, error = function(e) {
+      print("Error adding metadata:")
+      print(e)
+      stop("Failed to add metadata in Seurat version 5.")
+    })
+  } else if (SeuratVersion == 4) {
+    print("Adding metadata to Seurat object (version 4)...")
+    sce@assays[[assay]]@meta.features <- tryCatch({
+      varData
+    }, error = function(e) {
+      print("Error adding metadata:")
+      print(e)
+      stop("Failed to add metadata in Seurat version 4.")
+    })
+  } else {
+    stop("Unsupported Seurat version. Supported versions are 4 and 5.")
+  }
+  
+  print("Metadata successfully added to Seurat object.")
   return(sce)
 }
+
 
 sce_add_h5_to_reductions <- function(sce, h5, cellNames, assay = "RNA", reductionsName = "reductions") {
   name <- names(h5[[reductionsName]])[[1]]
