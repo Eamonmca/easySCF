@@ -429,11 +429,11 @@ h5_to_seurat <- function(h5,
   # layer <- "rawdata"
   rawX <- h5_to_X(h5, assay, layer = "rawdata", useBPcells = useBPcells, useDisk = useDisk, cellNames = cellNames, geneNames = allgeneNames)
   sce <- Seurat::CreateSeuratObject(counts = rawX, assay = assay, project = "scanpy")
+  print(sce)
   print("Normalization counts...")
   if (calData) {
     sce <- Seurat::NormalizeData(sce)
   }
-  print(paste("Dimensions after normalization:", paste(dim(sce@assays[[assay]]@data), collapse = " x ")))
   summary(sce)
   
   print("Add var...")
