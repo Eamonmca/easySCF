@@ -576,7 +576,7 @@ h5_to_seurat <- function(h5,
   
   print("Add var...")
   # var
-  sce <- sce_add_h5_to_var(sce, h5, assay, "var")
+  # sce <- sce_add_h5_to_var(sce, h5, assay, "var")
 
   print("Add Feature...")
   # Features
