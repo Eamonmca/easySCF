@@ -86,43 +86,71 @@ h5_to_X <- function(h5, assay = "RNA", layer = "rawdata", useBPcells = FALSE, us
 }
 
 h5_to_DF <- function(h5data) {
+  print("Starting h5_to_DF function...")
+  
   if (h5data[["_index"]]$dims == 0) {
+    print("h5data has no dimensions (dims == 0). Returning NULL.")
     return(NULL)
   }
+  
+  print("Processing row names...")
   rownamesStr <- NULL
   for (name in names(h5data)) {
+    print(paste("Checking dataset:", name))
     if (name == "_index") {
       rownamesStr <- h5data[[name]][]
+      print("Row names retrieved successfully.")
       next
     }
   }
+  
+  print("Initializing data frame...")
   df <- data.frame()
+  
   for (name in names(h5data)) {
+    print(paste("Processing column:", name))
     if (name == "_index") {
       next
     }
-    if ("categorical" %in% getEncodingType(h5data[[name]])) {
+    encodingType <- getEncodingType(h5data[[name]])
+    print(paste("Encoding type for", name, "is:", encodingType))
+    
+    if ("categorical" %in% encodingType) {
+      print(paste("Processing categorical data for column:", name))
       values_attr <- h5data[[name]]
       labelName <- values_attr[["categories"]][]
+      print(paste("Categories for", name, "retrieved:", paste(labelName, collapse = ", ")))
       values <- values_attr[["codes"]][]
+      print(paste("Codes for", name, "retrieved."))
       values <- factor(as.integer(values), labels = labelName)
-    } else if (getEncodingType(h5data[[name]]) %in% c("array", "string-array")) {
+      print(paste("Converted codes to factor for column:", name))
+    } else if (encodingType %in% c("array", "string-array")) {
+      print(paste("Processing array data for column:", name))
       values <- h5data[[name]][]
     } else {
-      stop("Unknown encoding type")
+      stop(paste("Unknown encoding type for column:", name))
     }
+    
     df <- addDF(df, setNames(data.frame(values), name), "col")
+    print(paste("Column", name, "added to data frame."))
   }
+  
   if (!is.null(rownamesStr)) {
+    print("Assigning row names to the data frame...")
     rownames(df) <- rownamesStr
   }
+  
   if ("column-order" %in% hdf5r::h5attr_names(h5data)) {
+    print("Reordering columns based on 'column-order' attribute...")
     colnamesOrder <- hdf5r::h5attr(h5data, "column-order")
+    print(paste("Column order:", paste(colnamesOrder, collapse = ", ")))
     df <- df[, colnamesOrder]
   }
-
+  
+  print("Returning the final data frame...")
   return(df)
 }
+
 
 
 openH5 <- function(FileName) {
