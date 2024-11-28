@@ -137,6 +137,13 @@ h5_to_DF <- function(h5data) {
   
   if (!is.null(rownamesStr)) {
     print("Assigning row names to the data frame...")
+    print(paste("Number of rows in df:", nrow(df)))
+    print(paste("Length of rownamesStr:", length(rownamesStr)))
+    
+    if (nrow(df) != length(rownamesStr)) {
+      stop("Mismatch between number of rows in df and length of rownamesStr!")
+    }
+    
     rownames(df) <- rownamesStr
   }
   
@@ -150,6 +157,7 @@ h5_to_DF <- function(h5data) {
   print("Returning the final data frame...")
   return(df)
 }
+
 
 
 
