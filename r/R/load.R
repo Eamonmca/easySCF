@@ -88,6 +88,7 @@ h5_to_X <- function(h5, assay = "RNA", layer = "rawdata", useBPcells = FALSE, us
 h5_to_DF <- function(h5data) {
   print("Starting h5_to_DF function...")
   
+  # Check if _index exists and has dimensions
   if (h5data[["_index"]]$dims == 0) {
     print("h5data has no dimensions (dims == 0). Returning NULL.")
     return(NULL)
@@ -107,51 +108,101 @@ h5_to_DF <- function(h5data) {
   print("Initializing data frame...")
   df <- data.frame()
   
+  # Process each column in h5data
   for (name in names(h5data)) {
     print(paste("Processing column:", name))
     if (name == "_index") {
+      print("Skipping '_index' column...")
       next
     }
-    encodingType <- getEncodingType(h5data[[name]])
+    
+    encodingType <- tryCatch({
+      getEncodingType(h5data[[name]])
+    }, error = function(e) {
+      print(paste("Error determining encoding type for column:", name))
+      return(NULL)
+    })
+    
     print(paste("Encoding type for", name, "is:", encodingType))
+    
+    if (is.null(encodingType)) {
+      print(paste("Skipping column:", name, "due to missing encoding type."))
+      next
+    }
     
     if ("categorical" %in% encodingType) {
       print(paste("Processing categorical data for column:", name))
       values_attr <- h5data[[name]]
-      labelName <- values_attr[["categories"]][]
+      labelName <- tryCatch({
+        values_attr[["categories"]][]
+      }, error = function(e) {
+        print(paste("Error retrieving categories for column:", name))
+        return(NULL)
+      })
+      
+      if (is.null(labelName)) next
+      
       print(paste("Categories for", name, "retrieved:", paste(labelName, collapse = ", ")))
-      values <- values_attr[["codes"]][]
-      print(paste("Codes for", name, "retrieved."))
+      values <- tryCatch({
+        values_attr[["codes"]][]
+      }, error = function(e) {
+        print(paste("Error retrieving codes for column:", name))
+        return(NULL)
+      })
+      
+      if (is.null(values)) next
+      
       values <- factor(as.integer(values), labels = labelName)
       print(paste("Converted codes to factor for column:", name))
     } else if (encodingType %in% c("array", "string-array")) {
       print(paste("Processing array data for column:", name))
-      values <- h5data[[name]][]
+      values <- tryCatch({
+        h5data[[name]][]
+      }, error = function(e) {
+        print(paste("Error retrieving array data for column:", name))
+        return(NULL)
+      })
+      
+      if (is.null(values)) next
     } else {
-      stop(paste("Unknown encoding type for column:", name))
+      print(paste("Skipping column due to unknown encoding type:", encodingType))
+      next
     }
     
-    df <- addDF(df, setNames(data.frame(values), name), "col")
+    print(paste("Adding column", name, "to data frame..."))
+    df <- tryCatch({
+      addDF(df, setNames(data.frame(values), name), "col")
+    }, error = function(e) {
+      print(paste("Error adding column:", name, "to data frame"))
+      return(df)
+    })
     print(paste("Column", name, "added to data frame."))
   }
   
-  if (!is.null(rownamesStr)) {
-    print("Assigning row names to the data frame...")
-    print(paste("Number of rows in df:", nrow(df)))
-    print(paste("Length of rownamesStr:", length(rownamesStr)))
-    
-    if (nrow(df) != length(rownamesStr)) {
-      stop("Mismatch between number of rows in df and length of rownamesStr!")
-    }
-    
-    rownames(df) <- rownamesStr
+  print("Assigning row names to the data frame...")
+  print(paste("Number of rows in df:", nrow(df)))
+  print(paste("Length of rownamesStr:", length(rownamesStr)))
+  
+  if (nrow(df) != length(rownamesStr)) {
+    stop("Mismatch between number of rows in df and length of rownamesStr!")
   }
   
+  rownames(df) <- rownamesStr
+  
+  # Reorder columns if "column-order" attribute exists
   if ("column-order" %in% hdf5r::h5attr_names(h5data)) {
     print("Reordering columns based on 'column-order' attribute...")
-    colnamesOrder <- hdf5r::h5attr(h5data, "column-order")
-    print(paste("Column order:", paste(colnamesOrder, collapse = ", ")))
-    df <- df[, colnamesOrder]
+    colnamesOrder <- tryCatch({
+      hdf5r::h5attr(h5data, "column-order")
+    }, error = function(e) {
+      print("Error retrieving 'column-order' attribute.")
+      return(NULL)
+    })
+    
+    if (!is.null(colnamesOrder)) {
+      print(paste("Column order:", paste(colnamesOrder, collapse = ", ")))
+      df <- df[, colnamesOrder, drop = FALSE]
+    }
   }
   
   print("Returning the final data frame...")
